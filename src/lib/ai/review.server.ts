@@ -77,9 +77,10 @@ export async function draftReview(opts: {
     const parsed = extractJson(text);
     if (!parsed) return { grade: null, feedback: null };
 
-    const grade = (GRADES as readonly string[]).includes(parsed.grade)
-      ? (parsed.grade as Grade)
-      : null;
+    const grade =
+      typeof parsed.grade === "string" && (GRADES as readonly string[]).includes(parsed.grade)
+        ? (parsed.grade as Grade)
+        : null;
     const feedback =
       typeof parsed.feedback === "string" && parsed.feedback.trim().length > 0
         ? parsed.feedback.trim()
