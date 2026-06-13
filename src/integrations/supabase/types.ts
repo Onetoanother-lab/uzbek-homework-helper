@@ -14,7 +14,206 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      admins: {
+        Row: {
+          added_at: string
+          tg_user_id: number
+        }
+        Insert: {
+          added_at?: string
+          tg_user_id: number
+        }
+        Update: {
+          added_at?: string
+          tg_user_id?: number
+        }
+        Relationships: []
+      }
+      conversation_state: {
+        Row: {
+          draft: Json
+          step: string
+          tg_user_id: number
+          updated_at: string
+        }
+        Insert: {
+          draft?: Json
+          step: string
+          tg_user_id: number
+          updated_at?: string
+        }
+        Update: {
+          draft?: Json
+          step?: string
+          tg_user_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      groups: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          parents_chat_id: number | null
+          teachers_chat_id: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          parents_chat_id?: number | null
+          teachers_chat_id?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          parents_chat_id?: number | null
+          teachers_chat_id?: number | null
+        }
+        Relationships: []
+      }
+      processed_updates: {
+        Row: {
+          processed_at: string
+          update_id: number
+        }
+        Insert: {
+          processed_at?: string
+          update_id: number
+        }
+        Update: {
+          processed_at?: string
+          update_id?: number
+        }
+        Relationships: []
+      }
+      students: {
+        Row: {
+          created_at: string
+          full_name: string
+          group_id: string | null
+          id: string
+          tg_user_id: number
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          group_id?: string | null
+          id?: string
+          tg_user_id: number
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          group_id?: string | null
+          id?: string
+          tg_user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      submissions: {
+        Row: {
+          ai_draft_feedback: string | null
+          ai_draft_grade: string | null
+          caption: string | null
+          created_at: string
+          file_id: string
+          file_type: string
+          final_feedback: string | null
+          final_grade: string | null
+          group_id: string | null
+          id: number
+          pending_grade: string | null
+          reviewed_at: string | null
+          reviewer_tg_id: number | null
+          status: string
+          student_id: string | null
+          teacher_chat_id: number | null
+          teacher_message_id: number | null
+        }
+        Insert: {
+          ai_draft_feedback?: string | null
+          ai_draft_grade?: string | null
+          caption?: string | null
+          created_at?: string
+          file_id: string
+          file_type: string
+          final_feedback?: string | null
+          final_grade?: string | null
+          group_id?: string | null
+          id?: number
+          pending_grade?: string | null
+          reviewed_at?: string | null
+          reviewer_tg_id?: number | null
+          status?: string
+          student_id?: string | null
+          teacher_chat_id?: number | null
+          teacher_message_id?: number | null
+        }
+        Update: {
+          ai_draft_feedback?: string | null
+          ai_draft_grade?: string | null
+          caption?: string | null
+          created_at?: string
+          file_id?: string
+          file_type?: string
+          final_feedback?: string | null
+          final_grade?: string | null
+          group_id?: string | null
+          id?: number
+          pending_grade?: string | null
+          reviewed_at?: string | null
+          reviewer_tg_id?: number | null
+          status?: string
+          student_id?: string | null
+          teacher_chat_id?: number | null
+          teacher_message_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submissions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submissions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teachers_chats: {
+        Row: {
+          chat_id: number
+          created_at: string
+          label: string | null
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          label?: string | null
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          label?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
