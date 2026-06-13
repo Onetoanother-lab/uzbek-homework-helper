@@ -1,6 +1,3 @@
-// src/integrations/supabase/types.ts
-// Updated to include new tables and columns added in migration 001.
-
 export type Json =
   | string
   | number
@@ -10,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -90,62 +89,6 @@ export type Database = {
         }
         Relationships: []
       }
-      review_edits: {
-        Row: {
-          id: number
-          submission_id: number
-          editor_tg_id: number
-          old_grade: string | null
-          new_grade: string | null
-          old_feedback: string | null
-          new_feedback: string | null
-          edited_at: string
-        }
-        Insert: {
-          id?: number
-          submission_id: number
-          editor_tg_id: number
-          old_grade?: string | null
-          new_grade?: string | null
-          old_feedback?: string | null
-          new_feedback?: string | null
-          edited_at?: string
-        }
-        Update: {
-          id?: number
-          submission_id?: number
-          editor_tg_id?: number
-          old_grade?: string | null
-          new_grade?: string | null
-          old_feedback?: string | null
-          new_feedback?: string | null
-          edited_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "review_edits_submission_id_fkey"
-            columns: ["submission_id"]
-            isOneToOne: false
-            referencedRelation: "submissions"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      submission_rate_limits: {
-        Row: {
-          tg_user_id: number
-          submitted_at: string
-        }
-        Insert: {
-          tg_user_id: number
-          submitted_at?: string
-        }
-        Update: {
-          tg_user_id?: number
-          submitted_at?: string
-        }
-        Relationships: []
-      }
       students: {
         Row: {
           created_at: string
@@ -175,7 +118,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "groups"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       submissions: {
@@ -197,8 +140,6 @@ export type Database = {
           student_id: string | null
           teacher_chat_id: number | null
           teacher_message_id: number | null
-          resubmit_count: number
-          last_resubmit_at: string | null
         }
         Insert: {
           ai_draft_feedback?: string | null
@@ -218,8 +159,6 @@ export type Database = {
           student_id?: string | null
           teacher_chat_id?: number | null
           teacher_message_id?: number | null
-          resubmit_count?: number
-          last_resubmit_at?: string | null
         }
         Update: {
           ai_draft_feedback?: string | null
@@ -239,8 +178,6 @@ export type Database = {
           student_id?: string | null
           teacher_chat_id?: number | null
           teacher_message_id?: number | null
-          resubmit_count?: number
-          last_resubmit_at?: string | null
         }
         Relationships: [
           {
@@ -256,7 +193,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       teachers_chats: {
@@ -277,35 +214,6 @@ export type Database = {
         }
         Relationships: []
       }
-      weekly_reports: {
-        Row: {
-          id: number
-          group_id: string
-          week_start: string
-          sent_at: string
-        }
-        Insert: {
-          id?: number
-          group_id: string
-          week_start: string
-          sent_at?: string
-        }
-        Update: {
-          id?: number
-          group_id?: string
-          week_start?: string
-          sent_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "weekly_reports_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "groups"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
     }
     Views: {
       [_ in never]: never
@@ -323,6 +231,7 @@ export type Database = {
 }
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
@@ -335,16 +244,21 @@ export type Tables<
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
     ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends { Row: infer R }
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
       ? R
       : never
     : never
@@ -353,17 +267,23 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends { Insert: infer I }
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
       ? I
       : never
     : never
@@ -372,17 +292,23 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends { Update: infer U }
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
       ? U
       : never
     : never
@@ -391,13 +317,34 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {
