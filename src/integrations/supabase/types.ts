@@ -192,7 +192,9 @@ export type Database = {
           final_grade: string | null
           group_id: string | null
           id: number
+          last_resubmit_at: string | null
           pending_grade: string | null
+          resubmit_count: number
           reviewed_at: string | null
           reviewer_tg_id: number | null
           status: string
@@ -211,7 +213,9 @@ export type Database = {
           final_grade?: string | null
           group_id?: string | null
           id?: number
+          last_resubmit_at?: string | null
           pending_grade?: string | null
+          resubmit_count?: number
           reviewed_at?: string | null
           reviewer_tg_id?: number | null
           status?: string
@@ -230,7 +234,9 @@ export type Database = {
           final_grade?: string | null
           group_id?: string | null
           id?: number
+          last_resubmit_at?: string | null
           pending_grade?: string | null
+          resubmit_count?: number
           reviewed_at?: string | null
           reviewer_tg_id?: number | null
           status?: string
