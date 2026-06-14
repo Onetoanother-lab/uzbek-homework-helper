@@ -89,6 +89,47 @@ export type Database = {
         }
         Relationships: []
       }
+      review_edits: {
+        Row: {
+          edited_at: string
+          editor_tg_id: number
+          id: number
+          new_feedback: string | null
+          new_grade: string | null
+          old_feedback: string | null
+          old_grade: string | null
+          submission_id: number
+        }
+        Insert: {
+          edited_at?: string
+          editor_tg_id: number
+          id?: number
+          new_feedback?: string | null
+          new_grade?: string | null
+          old_feedback?: string | null
+          old_grade?: string | null
+          submission_id: number
+        }
+        Update: {
+          edited_at?: string
+          editor_tg_id?: number
+          id?: number
+          new_feedback?: string | null
+          new_grade?: string | null
+          old_feedback?: string | null
+          old_grade?: string | null
+          submission_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_edits_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           created_at: string
@@ -121,6 +162,24 @@ export type Database = {
           },
         ]
       }
+      submission_rate_limits: {
+        Row: {
+          id: number
+          submitted_at: string
+          tg_user_id: number
+        }
+        Insert: {
+          id?: number
+          submitted_at?: string
+          tg_user_id: number
+        }
+        Update: {
+          id?: number
+          submitted_at?: string
+          tg_user_id?: number
+        }
+        Relationships: []
+      }
       submissions: {
         Row: {
           ai_draft_feedback: string | null
@@ -133,7 +192,9 @@ export type Database = {
           final_grade: string | null
           group_id: string | null
           id: number
+          last_resubmit_at: string | null
           pending_grade: string | null
+          resubmit_count: number
           reviewed_at: string | null
           reviewer_tg_id: number | null
           status: string
@@ -152,7 +213,9 @@ export type Database = {
           final_grade?: string | null
           group_id?: string | null
           id?: number
+          last_resubmit_at?: string | null
           pending_grade?: string | null
+          resubmit_count?: number
           reviewed_at?: string | null
           reviewer_tg_id?: number | null
           status?: string
@@ -171,7 +234,9 @@ export type Database = {
           final_grade?: string | null
           group_id?: string | null
           id?: number
+          last_resubmit_at?: string | null
           pending_grade?: string | null
+          resubmit_count?: number
           reviewed_at?: string | null
           reviewer_tg_id?: number | null
           status?: string
@@ -213,6 +278,35 @@ export type Database = {
           label?: string | null
         }
         Relationships: []
+      }
+      weekly_reports: {
+        Row: {
+          group_id: string
+          id: number
+          sent_at: string
+          week_start: string
+        }
+        Insert: {
+          group_id: string
+          id?: number
+          sent_at?: string
+          week_start: string
+        }
+        Update: {
+          group_id?: string
+          id?: number
+          sent_at?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_reports_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

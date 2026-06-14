@@ -35,11 +35,30 @@ import { pruneOldEntries } from "@/lib/telegram/rate-limit.server";
 export async function dispatch(update: any): Promise<void> {
   if (typeof update?.update_id !== "number") return;
 
+  const msg = update.message ?? update.edited_message;
+  console.log(
+    "[router] update",
+    update.update_id,
+    "kind=",
+    update.callback_query ? "callback" : msg ? "message" : "other",
+    "chat_type=",
+    msg?.chat?.type ?? update.callback_query?.message?.chat?.type,
+    "chat_id=",
+    msg?.chat?.id ?? update.callback_query?.message?.chat?.id,
+    "from=",
+    msg?.from?.id ?? update.callback_query?.from?.id,
+    "text=",
+    JSON.stringify(msg?.text ?? update.callback_query?.data ?? "").slice(0, 160),
+  );
+
   // Idempotency: skip duplicate update_ids
   const { error: dupErr } = await supabaseAdmin
     .from("processed_updates")
     .insert({ update_id: update.update_id });
-  if (dupErr) return; // duplicate unique violation — skip
+  if (dupErr) {
+    console.log("[router] duplicate update", update.update_id, dupErr.message);
+    return;
+  }
 
   // Periodically prune old rate-limit entries (1-in-20 chance per dispatch)
   if (Math.random() < 0.05) {
@@ -48,14 +67,30 @@ export async function dispatch(update: any): Promise<void> {
     );
   }
 
-  if (update.callback_query) {
-    await handleCallbackQuery(update.callback_query);
-    return;
+  try {
+    if (update.callback_query) {
+      await handleCallbackQuery(update.callback_query);
+      return;
+    }
+    const message = update.message ?? update.edited_message;
+    if (!message) return;
+    await handleMessage(message);
+  } catch (err) {
+    console.error("[router] handler error:", err);
+    const chatId =
+      msg?.chat?.id ?? update.callback_query?.message?.chat?.id;
+    if (chatId) {
+      try {
+        const { sendMessage } = await import("@/lib/telegram/client.server");
+        await sendMessage({
+          chat_id: chatId,
+          text: `⚠️ Xato: ${(err as Error)?.message ?? "unknown"}`,
+        });
+      } catch (e) {
+        console.error("[router] failed to report error:", e);
+      }
+    }
   }
-
-  const message = update.message ?? update.edited_message;
-  if (!message) return;
-  await handleMessage(message);
 }
 
 // ─── Callback query routing ───────────────────────────────────────────────────
