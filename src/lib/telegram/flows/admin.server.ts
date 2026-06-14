@@ -17,6 +17,17 @@ export async function isAdmin(tgUserId: number): Promise<boolean> {
   return !!data;
 }
 
+async function canBindGroupChat(chatId: number, tgUserId: number): Promise<boolean> {
+  if (await isAdmin(tgUserId)) return true;
+  try {
+    const member = await getChatMember({ chat_id: chatId, user_id: tgUserId });
+    return member.status === "creator" || member.status === "administrator";
+  } catch (err) {
+    console.error("[admin] getChatMember failed:", err);
+    return false;
+  }
+}
+
 // ─── /claimadmin ─────────────────────────────────────────────────────────────
 
 export async function handleClaimAdmin(
@@ -62,20 +73,7 @@ export async function handleBindParents(opts: {
     await sendMessage({ chat_id: opts.chat_id, text: uz.bindParentsUsage });
     return;
   }
-  const admin = await isAdmin(opts.from_user_id);
-  let allowed = admin;
-  if (!allowed) {
-    try {
-      const member = await getChatMember({
-        chat_id: opts.chat_id,
-        user_id: opts.from_user_id,
-      });
-      allowed = member.status === "creator" || member.status === "administrator";
-    } catch {
-      allowed = false;
-    }
-  }
-  if (!allowed) {
+  if (!(await canBindGroupChat(opts.chat_id, opts.from_user_id))) {
     await sendMessage({ chat_id: opts.chat_id, text: uz.bindParentsForbidden });
     return;
   }
@@ -115,7 +113,7 @@ export async function handleBindTeachers(opts: {
     await sendMessage({ chat_id: opts.chat_id, text: uz.bindTeachersGroupOnly });
     return;
   }
-  if (!(await isAdmin(opts.from_user_id))) {
+  if (!(await canBindGroupChat(opts.chat_id, opts.from_user_id))) {
     await sendMessage({ chat_id: opts.chat_id, text: uz.bindTeachersForbidden });
     return;
   }

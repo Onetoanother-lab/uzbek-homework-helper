@@ -130,13 +130,13 @@ export const uz = {
   bindParentsUsage:
     "Foydalanish: /bindparents <SINF_NOMI> (guruh ichida yuboring).",
   bindParentsGroupOnly:
-    "Bu buyruq faqat guruh ichida ishlaydi.",
+    "Bu buyruq faqat guruh ichida ishlaydi. Botni ota-onalar Telegram guruhiga qo'shing va o'sha guruhda /bindparents <SINF_NOMI> yuboring.",
   bindParentsForbidden:
     "Faqat administrator yoki guruh admini bu buyruqni bajara oladi.",
   bindTeachersOk:
     "✅ Ushbu chat o'qituvchilar chati sifatida ro'yxatdan o'tkazildi.",
-  bindTeachersForbidden: "Faqat administrator bu buyruqni bajara oladi.",
-  bindTeachersGroupOnly: "Bu buyruq faqat guruh ichida ishlaydi.",
+  bindTeachersForbidden: "Faqat administrator yoki guruh admini bu buyruqni bajara oladi.",
+  bindTeachersGroupOnly: "Bu buyruq faqat guruh ichida ishlaydi. Botni o'qituvchilar Telegram guruhiga qo'shing va o'sha guruhda /bindteachers yuboring.",
 
   // ── Admin auth ───────────────────────────────────────────────────────────────
   claimAdminBadToken: "Notog'ri token.",
