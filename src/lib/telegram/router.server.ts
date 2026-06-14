@@ -1,7 +1,11 @@
 // src/lib/telegram/router.server.ts
 // Central dispatcher for all incoming Telegram updates.
+// Session 2: added homework, reminders, disputes, parent, error reporting.
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { reportError, withErrorReporting } from "@/lib/telegram/error-reporter.server";
+
+// ── Session 1 flows ───────────────────────────────────────────────────────────
 import {
   handleStart,
   handleHelp,
@@ -26,71 +30,69 @@ import {
   handleExport,
   handleGroupStats,
   handleStudentStats,
+  isAdmin,
 } from "@/lib/telegram/flows/admin.server";
-import { isAdmin } from "@/lib/telegram/flows/admin.server";
-import { pruneOldEntries } from "@/lib/telegram/rate-limit.server";
 
-// ─── Main dispatch ───────────────────────────────────────────────────────────
+// ── Session 2 flows ───────────────────────────────────────────────────────────
+import {
+  handleNewHomework,
+  handleHomeworksList,
+  handleHomeworkFileAttach,
+} from "@/lib/telegram/flows/homework.server";
+import {
+  handleDispute,
+  handleResolveDispute,
+} from "@/lib/telegram/flows/dispute.server";
+import {
+  handleChildStatus,
+  handleLinkParent,
+  handleUnlinkParent,
+} from "@/lib/telegram/flows/parent.server";
+
+import { pruneOldEntries } from "@/lib/telegram/rate-limit.server";
+import { sendMessage } from "@/lib/telegram/client.server";
+import { uz } from "@/lib/i18n/uz";
+
+// ─── Public entry point ───────────────────────────────────────────────────────
 
 export async function dispatch(update: any): Promise<void> {
+  return withErrorReporting(
+    "dispatch",
+    () => _dispatch(update),
+    undefined,
+    update?.update_id,
+  );
+}
+
+async function _dispatch(update: any): Promise<void> {
   if (typeof update?.update_id !== "number") return;
 
-  const msg = update.message ?? update.edited_message;
-  console.log(
-    "[router] update",
-    update.update_id,
-    "kind=",
-    update.callback_query ? "callback" : msg ? "message" : "other",
-    "chat_type=",
-    msg?.chat?.type ?? update.callback_query?.message?.chat?.type,
-    "chat_id=",
-    msg?.chat?.id ?? update.callback_query?.message?.chat?.id,
-    "from=",
-    msg?.from?.id ?? update.callback_query?.from?.id,
-    "text=",
-    JSON.stringify(msg?.text ?? update.callback_query?.data ?? "").slice(0, 160),
-  );
-
-  // Idempotency: skip duplicate update_ids
+  // Idempotency — skip already-processed updates
   const { error: dupErr } = await supabaseAdmin
     .from("processed_updates")
     .insert({ update_id: update.update_id });
-  if (dupErr) {
-    console.log("[router] duplicate update", update.update_id, dupErr.message);
-    return;
-  }
+  if (dupErr) return;
 
-  // Periodically prune old rate-limit entries (1-in-20 chance per dispatch)
+  // Probabilistic cleanup (5% of calls)
   if (Math.random() < 0.05) {
     pruneOldEntries().catch((e) =>
-      console.error("[router] rate-limit prune failed:", e),
+      reportError({ context: "rate-limit/prune", error: e }),
     );
   }
 
-  try {
-    if (update.callback_query) {
-      await handleCallbackQuery(update.callback_query);
-      return;
-    }
-    const message = update.message ?? update.edited_message;
-    if (!message) return;
-    await handleMessage(message);
-  } catch (err) {
-    console.error("[router] handler error:", err);
-    const chatId =
-      msg?.chat?.id ?? update.callback_query?.message?.chat?.id;
-    if (chatId) {
-      try {
-        const { sendMessage } = await import("@/lib/telegram/client.server");
-        await sendMessage({
-          chat_id: chatId,
-          text: `⚠️ Xato: ${(err as Error)?.message ?? "unknown"}`,
-        });
-      } catch (e) {
-        console.error("[router] failed to report error:", e);
-      }
-    }
+  if (update.callback_query) {
+    await handleCallbackQuery(update.callback_query).catch((e) =>
+      reportError({ context: "callback_query", error: e, updateId: update.update_id }),
+    );
+    return;
   }
+
+  const message = update.message ?? update.edited_message;
+  if (!message) return;
+
+  await handleMessage(message).catch((e) =>
+    reportError({ context: "message", error: e, updateId: update.update_id }),
+  );
 }
 
 // ─── Callback query routing ───────────────────────────────────────────────────
@@ -100,15 +102,11 @@ async function handleCallbackQuery(cq: any): Promise<void> {
   const chat_id: number = cq.message?.chat?.id;
   const message_id: number = cq.message?.message_id;
   const from_user_id: number = cq.from?.id;
-  const from_name: string =
-    [cq.from?.first_name, cq.from?.last_name].filter(Boolean).join(" ") ||
-    cq.from?.username ||
-    "—";
+  const from_name: string = buildName(cq.from);
 
   if (data.startsWith("grade:")) {
-    // grade:<submission_id>:<grade>
     const [, idStr, ...gradeParts] = data.split(":");
-    const grade = gradeParts.join(":"); // guard against colons in grade strings
+    const grade = gradeParts.join(":");
     const submission_id = Number(idStr);
     if (!Number.isFinite(submission_id) || !grade) return;
 
@@ -139,136 +137,55 @@ async function handleMessage(message: any): Promise<void> {
   const from_user_id: number | undefined = message.from?.id;
   if (!chat_id || !from_user_id) return;
 
-  // ── Media in private chat → submission ──
-  if (chat_type === "private") {
-    if (message.photo && Array.isArray(message.photo) && message.photo.length > 0) {
-      const largest = message.photo[message.photo.length - 1];
-      await handleSubmissionFile(
-        chat_id,
-        from_user_id,
-        { file_id: largest.file_id, file_type: "photo" },
-        message.caption,
-      );
+  // ── Media handling ──
+  const file = extractFile(message);
+
+  if (file) {
+    // Private chat → student submission or resubmit file
+    if (chat_type === "private") {
+      await handleSubmissionFile(chat_id, from_user_id, file, message.caption);
       return;
     }
-    if (message.document?.file_id) {
-      await handleSubmissionFile(
-        chat_id,
-        from_user_id,
-        { file_id: message.document.file_id, file_type: "document" },
-        message.caption,
-      );
-      return;
+
+    // Teacher group: check if this is a homework file attachment (reply)
+    if (
+      chat_type !== "private" &&
+      message.reply_to_message?.message_id
+    ) {
+      const attached = await handleHomeworkFileAttach({
+        chatId: chat_id,
+        replyToMessageId: message.reply_to_message.message_id,
+        file,
+      });
+      if (attached) return;
     }
+
+    return; // ignore other media in groups
   }
 
   const text: string = message.text ?? "";
   if (!text) return;
 
-  // ── Commands ──
+  // ── Command dispatch ──
   if (text.startsWith("/")) {
-    const firstSpace = text.indexOf(" ");
-    const head = (firstSpace === -1 ? text : text.slice(0, firstSpace)).toLowerCase();
-    const arg = firstSpace === -1 ? "" : text.slice(firstSpace + 1).trim();
-    const cmd = head.split("@")[0]; // strip @BotUsername suffix
-
-    const from_name: string =
-      [message.from?.first_name, message.from?.last_name].filter(Boolean).join(" ") ||
-      message.from?.username ||
-      "—";
-
-    switch (cmd) {
-      // ── Student commands ──
-      case "/start":
-        if (chat_type === "private") await handleStart(chat_id, from_user_id);
-        return;
-
-      case "/help":
-        await handleHelp(chat_id);
-        return;
-
-      case "/mystatus":
-        if (chat_type === "private") await handleMyStatus(chat_id, from_user_id);
-        return;
-
-      case "/resubmit":
-        if (chat_type === "private") await handleResubmitCommand(chat_id, from_user_id, arg);
-        return;
-
-      // ── Teacher commands ──
-      case "/resend":
-        await handleResend(chat_id, arg);
-        return;
-
-      case "/history":
-        await handleHistory(chat_id, arg);
-        return;
-
-      case "/editreview": {
-        await handleEditReview(chat_id, from_user_id, from_name, arg);
-        return;
-      }
-
-      // ── Admin commands ──
-      case "/claimadmin":
-        if (chat_type === "private") await handleClaimAdmin(chat_id, from_user_id, arg);
-        return;
-
-      case "/bindparents":
-        await handleBindParents({ chat_id, chat_type, from_user_id, arg });
-        return;
-
-      case "/bindteachers":
-        await handleBindTeachers({ chat_id, chat_type, from_user_id, arg });
-        return;
-
-      case "/stats": {
-        // Available to admins in any chat, or to anyone in private for simplicity
-        await handleStats(chat_id);
-        return;
-      }
-
-      case "/export": {
-        const admin = await isAdmin(from_user_id);
-        if (!admin) {
-          const { sendMessage } = await import("@/lib/telegram/client.server");
-          const { uz } = await import("@/lib/i18n/uz");
-          await sendMessage({ chat_id, text: uz.bindTeachersForbidden });
-          return;
-        }
-        await handleExport(chat_id);
-        return;
-      }
-
-      case "/groupstats":
-        await handleGroupStats(chat_id, arg);
-        return;
-
-      case "/studentstats":
-        await handleStudentStats(chat_id, arg);
-        return;
-
-      default:
-        if (chat_type === "private") {
-          const { sendMessage } = await import("@/lib/telegram/client.server");
-          const { uz } = await import("@/lib/i18n/uz");
-          await sendMessage({ chat_id, text: uz.unknownCmd });
-        }
-        return;
-    }
+    await dispatchCommand({
+      chat_id,
+      chat_type,
+      from_user_id,
+      from_name: buildName(message.from),
+      text,
+      reply_to_message_id: message.reply_to_message?.message_id,
+    });
+    return;
   }
 
-  // ── Teacher feedback reply (non-command text in a teacher group) ──
+  // ── Teacher feedback reply (non-command text, replying to a submission card) ──
   if (chat_type !== "private" && message.reply_to_message?.message_id) {
-    const from_name: string =
-      [message.from?.first_name, message.from?.last_name].filter(Boolean).join(" ") ||
-      message.from?.username ||
-      "—";
     const handled = await handleTeacherFeedbackReply({
       chat_id,
       reply_to_message_id: message.reply_to_message.message_id,
       from_user_id,
-      from_name,
+      from_name: buildName(message.from),
       text,
     });
     if (handled) return;
@@ -278,4 +195,150 @@ async function handleMessage(message: any): Promise<void> {
   if (chat_type === "private") {
     await handlePrivateText(chat_id, from_user_id, text);
   }
+}
+
+// ─── Command dispatch table ───────────────────────────────────────────────────
+
+async function dispatchCommand(opts: {
+  chat_id: number;
+  chat_type: string;
+  from_user_id: number;
+  from_name: string;
+  text: string;
+  reply_to_message_id?: number;
+}): Promise<void> {
+  const { chat_id, chat_type, from_user_id, from_name, text } = opts;
+
+  const firstSpace = text.indexOf(" ");
+  const head = (firstSpace === -1 ? text : text.slice(0, firstSpace)).toLowerCase();
+  const arg = firstSpace === -1 ? "" : text.slice(firstSpace + 1).trim();
+  const cmd = head.split("@")[0]; // strip @BotUsername
+
+  switch (cmd) {
+    // ── Student ──────────────────────────────────────────────────────────────
+    case "/start":
+      if (chat_type === "private") await handleStart(chat_id, from_user_id);
+      break;
+
+    case "/help":
+      await handleHelp(chat_id);
+      break;
+
+    case "/mystatus":
+      if (chat_type === "private") await handleMyStatus(chat_id, from_user_id);
+      break;
+
+    case "/resubmit":
+      if (chat_type === "private")
+        await handleResubmitCommand(chat_id, from_user_id, arg);
+      break;
+
+    case "/dispute":
+      if (chat_type === "private") await handleDispute(chat_id, from_user_id, arg);
+      break;
+
+    // ── Teacher ──────────────────────────────────────────────────────────────
+    case "/resend":
+      await handleResend(chat_id, arg);
+      break;
+
+    case "/history":
+      await handleHistory(chat_id, arg);
+      break;
+
+    case "/editreview":
+      await handleEditReview(chat_id, from_user_id, from_name, arg);
+      break;
+
+    case "/newhomework":
+      await handleNewHomework(chat_id, from_user_id, arg);
+      break;
+
+    case "/homeworks":
+      await handleHomeworksList(chat_id, arg);
+      break;
+
+    case "/resolvedispute":
+      await handleResolveDispute(chat_id, from_user_id, arg);
+      break;
+
+    // ── Parent ───────────────────────────────────────────────────────────────
+    case "/childstatus":
+      if (chat_type === "private") await handleChildStatus(chat_id, from_user_id);
+      break;
+
+    // ── Admin ────────────────────────────────────────────────────────────────
+    case "/claimadmin":
+      if (chat_type === "private")
+        await handleClaimAdmin(chat_id, from_user_id, arg);
+      break;
+
+    case "/bindparents":
+      await handleBindParents({ chat_id, chat_type, from_user_id, arg });
+      break;
+
+    case "/bindteachers":
+      await handleBindTeachers({ chat_id, chat_type, from_user_id, arg });
+      break;
+
+    case "/stats":
+      await handleStats(chat_id);
+      break;
+
+    case "/export": {
+      const admin = await isAdmin(from_user_id);
+      if (!admin) {
+        await sendMessage({ chat_id, text: uz.bindTeachersForbidden });
+        break;
+      }
+      await handleExport(chat_id);
+      break;
+    }
+
+    case "/groupstats":
+      await handleGroupStats(chat_id, arg);
+      break;
+
+    case "/studentstats":
+      await handleStudentStats(chat_id, arg);
+      break;
+
+    case "/linkparent":
+      await handleLinkParent(chat_id, from_user_id, arg);
+      break;
+
+    case "/unlinkparent":
+      await handleUnlinkParent(chat_id, from_user_id, arg);
+      break;
+
+    default:
+      if (chat_type === "private") {
+        await sendMessage({ chat_id, text: uz.unknownCmd });
+      }
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function extractFile(
+  message: any,
+): { file_id: string; file_type: "photo" | "document" } | null {
+  if (message.photo && Array.isArray(message.photo) && message.photo.length > 0) {
+    return {
+      file_id: message.photo[message.photo.length - 1].file_id,
+      file_type: "photo",
+    };
+  }
+  if (message.document?.file_id) {
+    return { file_id: message.document.file_id, file_type: "document" };
+  }
+  return null;
+}
+
+function buildName(from: any): string {
+  return (
+    [from?.first_name, from?.last_name].filter(Boolean).join(" ") ||
+    from?.username ||
+    "—"
+  );
 }
