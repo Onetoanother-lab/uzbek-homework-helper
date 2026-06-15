@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ConsoleRouteImport } from './routes/console'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiInternalWeeklyReportRouteImport } from './routes/api/internal/weekly-report'
 import { Route as ApiInternalRemindersRouteImport } from './routes/api/internal/reminders'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
+const ConsoleRoute = ConsoleRouteImport.update({
+  id: '/console',
+  path: '/console',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -38,12 +44,14 @@ const ApiPublicTelegramWebhookRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/console': typeof ConsoleRoute
   '/api/internal/reminders': typeof ApiInternalRemindersRoute
   '/api/internal/weekly-report': typeof ApiInternalWeeklyReportRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/console': typeof ConsoleRoute
   '/api/internal/reminders': typeof ApiInternalRemindersRoute
   '/api/internal/weekly-report': typeof ApiInternalWeeklyReportRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -51,6 +59,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/console': typeof ConsoleRoute
   '/api/internal/reminders': typeof ApiInternalRemindersRoute
   '/api/internal/weekly-report': typeof ApiInternalWeeklyReportRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -59,18 +68,21 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/console'
     | '/api/internal/reminders'
     | '/api/internal/weekly-report'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/console'
     | '/api/internal/reminders'
     | '/api/internal/weekly-report'
     | '/api/public/telegram/webhook'
   id:
     | '__root__'
     | '/'
+    | '/console'
     | '/api/internal/reminders'
     | '/api/internal/weekly-report'
     | '/api/public/telegram/webhook'
@@ -78,6 +90,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConsoleRoute: typeof ConsoleRoute
   ApiInternalRemindersRoute: typeof ApiInternalRemindersRoute
   ApiInternalWeeklyReportRoute: typeof ApiInternalWeeklyReportRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
@@ -85,6 +98,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/console': {
+      id: '/console'
+      path: '/console'
+      fullPath: '/console'
+      preLoaderRoute: typeof ConsoleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -118,6 +138,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConsoleRoute: ConsoleRoute,
   ApiInternalRemindersRoute: ApiInternalRemindersRoute,
   ApiInternalWeeklyReportRoute: ApiInternalWeeklyReportRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
