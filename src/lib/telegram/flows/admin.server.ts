@@ -17,7 +17,8 @@ export async function isAdmin(tgUserId: number): Promise<boolean> {
   return !!data;
 }
 
-async function canBindGroupChat(chatId: number, tgUserId: number): Promise<boolean> {
+async function canBindGroupChat(chatId: number, tgUserId: number, senderChatId?: number): Promise<boolean> {
+  if (senderChatId === chatId) return true;
   if (await isAdmin(tgUserId)) return true;
   try {
     const member = await getChatMember({ chat_id: chatId, user_id: tgUserId });
@@ -62,6 +63,7 @@ export async function handleBindParents(opts: {
   chat_id: number;
   chat_type: string;
   from_user_id: number;
+  sender_chat_id?: number;
   arg: string;
 }): Promise<void> {
   if (opts.chat_type === "private") {
@@ -73,7 +75,7 @@ export async function handleBindParents(opts: {
     await sendMessage({ chat_id: opts.chat_id, text: uz.bindParentsUsage });
     return;
   }
-  if (!(await canBindGroupChat(opts.chat_id, opts.from_user_id))) {
+  if (!(await canBindGroupChat(opts.chat_id, opts.from_user_id, opts.sender_chat_id))) {
     await sendMessage({ chat_id: opts.chat_id, text: uz.bindParentsForbidden });
     return;
   }
@@ -107,13 +109,14 @@ export async function handleBindTeachers(opts: {
   chat_id: number;
   chat_type: string;
   from_user_id: number;
+  sender_chat_id?: number;
   arg: string;
 }): Promise<void> {
   if (opts.chat_type === "private") {
     await sendMessage({ chat_id: opts.chat_id, text: uz.bindTeachersGroupOnly });
     return;
   }
-  if (!(await canBindGroupChat(opts.chat_id, opts.from_user_id))) {
+  if (!(await canBindGroupChat(opts.chat_id, opts.from_user_id, opts.sender_chat_id))) {
     await sendMessage({ chat_id: opts.chat_id, text: uz.bindTeachersForbidden });
     return;
   }
