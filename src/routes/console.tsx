@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Bot, CheckCircle2, Clock, RefreshCw, Shield, Terminal } from "lucide-react";
+import { AlertTriangle, Bot, CheckCircle2, Clock, RefreshCw, Shield, Terminal, type LucideIcon } from "lucide-react";
 import { FormEvent, ReactNode, useState } from "react";
 
 import { getBotConsoleData } from "@/lib/bot-console.functions";
@@ -175,7 +175,7 @@ function Metric({ label, value }: { label: string; value: number }) {
   );
 }
 
-function Panel({ title, icon: Icon, tone = "neutral", children }: { title: string; icon: typeof Bot; tone?: "neutral" | "ok" | "bad"; children: ReactNode }) {
+function Panel({ title, icon: Icon, tone = "neutral", children }: { title: string; icon: LucideIcon; tone?: "neutral" | "ok" | "bad"; children: ReactNode }) {
   const toneClass = tone === "bad" ? "text-destructive" : tone === "ok" ? "text-chart-2" : "text-muted-foreground";
   return (
     <div className="rounded-md border border-border bg-card p-4 text-card-foreground">
