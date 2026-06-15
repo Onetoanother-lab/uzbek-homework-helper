@@ -71,7 +71,18 @@ async function _dispatch(update: any): Promise<void> {
   const { error: dupErr } = await supabaseAdmin
     .from("processed_updates")
     .insert({ update_id: update.update_id });
-  if (dupErr) return;
+  if (dupErr) {
+    if ((dupErr as any).code !== "23505") {
+      await reportError({ context: "processed_updates/insert", error: dupErr, updateId: update.update_id });
+    }
+    return;
+  }
+
+  await logBotEvent({
+    ...extractUpdateInfo(update),
+    update_id: update.update_id,
+    event_type: "update_received",
+  });
 
   // Probabilistic cleanup (5% of calls)
   if (Math.random() < 0.05) {
@@ -90,7 +101,7 @@ async function _dispatch(update: any): Promise<void> {
   const message = update.message ?? update.edited_message;
   if (!message) return;
 
-  await handleMessage(message).catch((e) =>
+  await handleMessage(message, update.update_id).catch((e) =>
     reportError({ context: "message", error: e, updateId: update.update_id }),
   );
 }
@@ -131,7 +142,7 @@ async function handleCallbackQuery(cq: any): Promise<void> {
 
 // ─── Message routing ──────────────────────────────────────────────────────────
 
-async function handleMessage(message: any): Promise<void> {
+async function handleMessage(message: any, updateId: number): Promise<void> {
   const chat_id: number = message.chat?.id;
   const chat_type: string = message.chat?.type ?? "private";
   const from_user_id: number | undefined = message.from?.id;
@@ -168,6 +179,16 @@ async function handleMessage(message: any): Promise<void> {
 
   // ── Command dispatch ──
   if (text.startsWith("/")) {
+    const command = commandFromText(text);
+    await logBotEvent({
+      update_id: updateId,
+      chat_id,
+      chat_type,
+      from_user_id,
+      command,
+      event_type: "command_received",
+      message: text.slice(0, 500),
+    });
     await dispatchCommand({
       chat_id,
       chat_type,
@@ -175,6 +196,14 @@ async function handleMessage(message: any): Promise<void> {
       from_name: buildName(message.from),
       text,
       reply_to_message_id: message.reply_to_message?.message_id,
+    });
+    await logBotEvent({
+      update_id: updateId,
+      chat_id,
+      chat_type,
+      from_user_id,
+      command,
+      event_type: "command_completed",
     });
     return;
   }
@@ -341,4 +370,54 @@ function buildName(from: any): string {
     from?.username ||
     "—"
   );
+}
+
+function commandFromText(text: string): string {
+  const firstSpace = text.indexOf(" ");
+  const head = (firstSpace === -1 ? text : text.slice(0, firstSpace)).toLowerCase();
+  return head.split("@")[0];
+}
+
+function extractUpdateInfo(update: any) {
+  const message = update.message ?? update.edited_message ?? update.callback_query?.message;
+  const callbackData = update.callback_query?.data;
+  const text = update.message?.text ?? update.edited_message?.text ?? callbackData ?? null;
+  return {
+    chat_id: message?.chat?.id ?? null,
+    chat_type: message?.chat?.type ?? null,
+    from_user_id: update.message?.from?.id ?? update.edited_message?.from?.id ?? update.callback_query?.from?.id ?? null,
+    command: typeof text === "string" && text.startsWith("/") ? commandFromText(text) : null,
+    message: typeof text === "string" ? text.slice(0, 500) : null,
+    metadata: {
+      hasCallback: Boolean(update.callback_query),
+      hasMessage: Boolean(update.message),
+      hasEditedMessage: Boolean(update.edited_message),
+    },
+  };
+}
+
+async function logBotEvent(event: {
+  update_id?: number | null;
+  chat_id?: number | null;
+  chat_type?: string | null;
+  from_user_id?: number | null;
+  command?: string | null;
+  event_type: string;
+  message?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  try {
+    await supabaseAdmin.from("bot_events").insert({
+      update_id: event.update_id ?? null,
+      chat_id: event.chat_id ?? null,
+      chat_type: event.chat_type ?? null,
+      from_user_id: event.from_user_id ?? null,
+      command: event.command ?? null,
+      event_type: event.event_type,
+      message: event.message ?? null,
+      metadata: event.metadata ?? {},
+    });
+  } catch (err) {
+    console.error("[telegram] failed to write bot event:", err);
+  }
 }
