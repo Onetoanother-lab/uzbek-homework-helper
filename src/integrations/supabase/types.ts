@@ -29,6 +29,45 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_events: {
+        Row: {
+          chat_id: number | null
+          chat_type: string | null
+          command: string | null
+          created_at: string
+          event_type: string
+          from_user_id: number | null
+          id: number
+          message: string | null
+          metadata: Json
+          update_id: number | null
+        }
+        Insert: {
+          chat_id?: number | null
+          chat_type?: string | null
+          command?: string | null
+          created_at?: string
+          event_type: string
+          from_user_id?: number | null
+          id?: number
+          message?: string | null
+          metadata?: Json
+          update_id?: number | null
+        }
+        Update: {
+          chat_id?: number | null
+          chat_type?: string | null
+          command?: string | null
+          created_at?: string
+          event_type?: string
+          from_user_id?: number | null
+          id?: number
+          message?: string | null
+          metadata?: Json
+          update_id?: number | null
+        }
+        Relationships: []
+      }
       conversation_state: {
         Row: {
           draft: Json
@@ -47,6 +86,84 @@ export type Database = {
           step?: string
           tg_user_id?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      disputes: {
+        Row: {
+          created_at: string
+          id: number
+          reason: string
+          resolution: string | null
+          resolved_at: string | null
+          resolver_tg_id: number | null
+          status: string
+          student_id: string
+          submission_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          reason: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolver_tg_id?: number | null
+          status?: string
+          student_id: string
+          submission_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          reason?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolver_tg_id?: number | null
+          status?: string
+          student_id?: string
+          submission_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disputes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disputes_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: true
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      error_log: {
+        Row: {
+          context: string
+          created_at: string
+          id: number
+          message: string
+          stack: string | null
+          update_id: number | null
+        }
+        Insert: {
+          context: string
+          created_at?: string
+          id?: number
+          message: string
+          stack?: string | null
+          update_id?: number | null
+        }
+        Update: {
+          context?: string
+          created_at?: string
+          id?: number
+          message?: string
+          stack?: string | null
+          update_id?: number | null
         }
         Relationships: []
       }
@@ -73,6 +190,111 @@ export type Database = {
           teachers_chat_id?: number | null
         }
         Relationships: []
+      }
+      homework_reminders_sent: {
+        Row: {
+          homework_id: number
+          kind: string
+          sent_at: string
+        }
+        Insert: {
+          homework_id: number
+          kind: string
+          sent_at?: string
+        }
+        Update: {
+          homework_id?: number
+          kind?: string
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_reminders_sent_homework_id_fkey"
+            columns: ["homework_id"]
+            isOneToOne: false
+            referencedRelation: "homeworks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      homeworks: {
+        Row: {
+          created_at: string
+          created_by: number
+          deleted_at: string | null
+          description: string | null
+          due_at: string
+          file_id: string | null
+          file_type: string | null
+          group_id: string
+          id: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: number
+          deleted_at?: string | null
+          description?: string | null
+          due_at: string
+          file_id?: string | null
+          file_type?: string | null
+          group_id: string
+          id?: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: number
+          deleted_at?: string | null
+          description?: string | null
+          due_at?: string
+          file_id?: string | null
+          file_type?: string | null
+          group_id?: string
+          id?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homeworks_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parent_student_links: {
+        Row: {
+          id: number
+          linked_at: string
+          linked_by: number
+          parent_tg_id: number
+          student_id: string
+        }
+        Insert: {
+          id?: number
+          linked_at?: string
+          linked_by: number
+          parent_tg_id: number
+          student_id: string
+        }
+        Update: {
+          id?: number
+          linked_at?: string
+          linked_by?: number
+          parent_tg_id?: number
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parent_student_links_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       processed_updates: {
         Row: {
