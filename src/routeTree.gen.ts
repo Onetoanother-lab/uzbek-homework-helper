@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiInternalWeeklyReportRouteImport } from './routes/api/internal/weekly-report'
+import { Route as ApiInternalRemindersRouteImport } from './routes/api/internal/reminders'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const ApiInternalWeeklyReportRoute = ApiInternalWeeklyReportRouteImport.update({
   path: '/api/internal/weekly-report',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiInternalRemindersRoute = ApiInternalRemindersRouteImport.update({
+  id: '/api/internal/reminders',
+  path: '/api/internal/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicTelegramWebhookRoute =
   ApiPublicTelegramWebhookRouteImport.update({
     id: '/api/public/telegram/webhook',
@@ -32,17 +38,20 @@ const ApiPublicTelegramWebhookRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/internal/reminders': typeof ApiInternalRemindersRoute
   '/api/internal/weekly-report': typeof ApiInternalWeeklyReportRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/internal/reminders': typeof ApiInternalRemindersRoute
   '/api/internal/weekly-report': typeof ApiInternalWeeklyReportRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/internal/reminders': typeof ApiInternalRemindersRoute
   '/api/internal/weekly-report': typeof ApiInternalWeeklyReportRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -50,19 +59,26 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api/internal/reminders'
     | '/api/internal/weekly-report'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/internal/weekly-report' | '/api/public/telegram/webhook'
+  to:
+    | '/'
+    | '/api/internal/reminders'
+    | '/api/internal/weekly-report'
+    | '/api/public/telegram/webhook'
   id:
     | '__root__'
     | '/'
+    | '/api/internal/reminders'
     | '/api/internal/weekly-report'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiInternalRemindersRoute: typeof ApiInternalRemindersRoute
   ApiInternalWeeklyReportRoute: typeof ApiInternalWeeklyReportRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
@@ -83,6 +99,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInternalWeeklyReportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/internal/reminders': {
+      id: '/api/internal/reminders'
+      path: '/api/internal/reminders'
+      fullPath: '/api/internal/reminders'
+      preLoaderRoute: typeof ApiInternalRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/telegram/webhook': {
       id: '/api/public/telegram/webhook'
       path: '/api/public/telegram/webhook'
@@ -95,6 +118,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiInternalRemindersRoute: ApiInternalRemindersRoute,
   ApiInternalWeeklyReportRoute: ApiInternalWeeklyReportRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
