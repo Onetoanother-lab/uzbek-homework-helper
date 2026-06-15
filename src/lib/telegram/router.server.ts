@@ -415,7 +415,7 @@ async function logBotEvent(event: {
       command: event.command ?? null,
       event_type: event.event_type,
       message: event.message ?? null,
-      metadata: event.metadata ?? {},
+      metadata: (event.metadata ?? {}) as any,
     });
   } catch (err) {
     console.error("[telegram] failed to write bot event:", err);
