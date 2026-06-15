@@ -195,6 +195,7 @@ async function handleMessage(message: any, updateId: number): Promise<void> {
       from_user_id,
       from_name: buildName(message.from),
       text,
+      sender_chat_id: message.sender_chat?.id,
       reply_to_message_id: message.reply_to_message?.message_id,
     });
     await logBotEvent({
@@ -234,6 +235,7 @@ async function dispatchCommand(opts: {
   from_user_id: number;
   from_name: string;
   text: string;
+  sender_chat_id?: number;
   reply_to_message_id?: number;
 }): Promise<void> {
   const { chat_id, chat_type, from_user_id, from_name, text } = opts;
@@ -303,11 +305,11 @@ async function dispatchCommand(opts: {
       break;
 
     case "/bindparents":
-      await handleBindParents({ chat_id, chat_type, from_user_id, arg });
+      await handleBindParents({ chat_id, chat_type, from_user_id, sender_chat_id: opts.sender_chat_id, arg });
       break;
 
     case "/bindteachers":
-      await handleBindTeachers({ chat_id, chat_type, from_user_id, arg });
+      await handleBindTeachers({ chat_id, chat_type, from_user_id, sender_chat_id: opts.sender_chat_id, arg });
       break;
 
     case "/stats":
