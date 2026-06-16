@@ -156,7 +156,7 @@ export async function handleReportCard(chatId: number, arg: string): Promise<voi
 
   const text = `${header}\n${tpl(t.reportCardHeader, { group: group.name as string, n: hwList.length })}\n\n${legend}\n\n${rowLines.join("\n")}`;
 
-  await sendMessage({ chat_id: chatId, text, parse_mode: "Markdown" });
+  await sendMessage({ chat_id: chatId, text });
 }
 
 // ─── /teacherstats ────────────────────────────────────────────────────────────
