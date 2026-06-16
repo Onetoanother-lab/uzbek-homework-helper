@@ -568,11 +568,25 @@ async function fanout(opts: {
   studentName: string;
   groupId: string;
   groupName: string;
+  homeworkId: number | null;
   file: { file_id: string; file_type: "photo" | "document" };
   caption: string | undefined;
   isResubmit: boolean;
 }): Promise<void> {
-  // 1) AI draft review
+  // 0) Load homework context for the AI prompt (title + description)
+  let hwTitle: string | null = null;
+  let hwDescription: string | null = null;
+  if (opts.homeworkId) {
+    const { data: hw } = await supabaseAdmin
+      .from("homeworks")
+      .select("title, description")
+      .eq("id", opts.homeworkId)
+      .maybeSingle();
+    hwTitle = (hw?.title as string | null) ?? null;
+    hwDescription = (hw?.description as string | null) ?? null;
+  }
+
+  // 1) AI draft review (with homework context)
   let aiGrade: string | null = null;
   let aiFeedback: string | null = null;
 
@@ -582,6 +596,8 @@ async function fanout(opts: {
       bytes: fileBytes.bytes,
       mime: fileBytes.mime,
       caption: opts.caption,
+      homeworkTitle: hwTitle,
+      homeworkDescription: hwDescription,
     });
     aiGrade = review.grade;
     aiFeedback = review.feedback;
