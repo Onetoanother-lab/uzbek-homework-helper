@@ -413,6 +413,7 @@ export type Database = {
           final_feedback: string | null
           final_grade: string | null
           group_id: string | null
+          homework_id: number | null
           id: number
           last_resubmit_at: string | null
           pending_grade: string | null
@@ -434,6 +435,7 @@ export type Database = {
           final_feedback?: string | null
           final_grade?: string | null
           group_id?: string | null
+          homework_id?: number | null
           id?: number
           last_resubmit_at?: string | null
           pending_grade?: string | null
@@ -455,6 +457,7 @@ export type Database = {
           final_feedback?: string | null
           final_grade?: string | null
           group_id?: string | null
+          homework_id?: number | null
           id?: number
           last_resubmit_at?: string | null
           pending_grade?: string | null
@@ -472,6 +475,13 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submissions_homework_id_fkey"
+            columns: ["homework_id"]
+            isOneToOne: false
+            referencedRelation: "homeworks"
             referencedColumns: ["id"]
           },
           {
