@@ -462,9 +462,93 @@ async function acceptGroup(
 
   state.draft.group_id = groupId;
   state.draft.group_name = groupName;
+  await offerHomeworkPicker(chatId, tgUserId, groupId, state);
+}
+
+// ─── Homework picker ─────────────────────────────────────────────────────────
+
+async function offerHomeworkPicker(
+  chatId: number,
+  tgUserId: number,
+  groupId: string,
+  state: State,
+): Promise<void> {
+  const sinceIso = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  const { data: hws } = await supabaseAdmin
+    .from("homeworks")
+    .select("id, title, due_at")
+    .eq("group_id", groupId)
+    .is("deleted_at", null)
+    .gte("due_at", sinceIso)
+    .order("due_at", { ascending: true })
+    .limit(8);
+
+  if (!hws || hws.length === 0) {
+    state.draft.homework_id = null;
+    state.step = "ask_file";
+    await saveState(tgUserId, state);
+    await sendMessage({ chat_id: chatId, text: uz.askFile });
+    return;
+  }
+
+  state.step = "ask_homework";
+  await saveState(tgUserId, state);
+
+  const buttons = (hws as any[]).map((h) => ({
+    text: `#${h.id} ${truncate(h.title as string, 28)}`,
+    callback_data: `pickhw:${h.id}`,
+  }));
+  buttons.push({ text: uzFeature.askHomeworkNone, callback_data: "pickhw:none" });
+
+  await sendMessage({
+    chat_id: chatId,
+    text: uzFeature.askHomework,
+    reply_markup: { inline_keyboard: chunk(buttons, 1) },
+  });
+}
+
+export async function handlePickHomeworkCallback(
+  chatId: number,
+  tgUserId: number,
+  raw: string,
+): Promise<void> {
+  const state = await loadState(tgUserId);
+  if (!state || state.step !== "ask_homework") return;
+
+  if (raw === "none") {
+    state.draft.homework_id = null;
+    state.step = "ask_file";
+    await saveState(tgUserId, state);
+    await sendMessage({ chat_id: chatId, text: uzFeature.pickedHomeworkNone });
+    return;
+  }
+
+  const hwId = parseInt(raw, 10);
+  if (!Number.isFinite(hwId)) return;
+
+  const { data: hw } = await supabaseAdmin
+    .from("homeworks")
+    .select("id, title")
+    .eq("id", hwId)
+    .maybeSingle();
+
+  if (!hw) {
+    state.draft.homework_id = null;
+  } else {
+    state.draft.homework_id = hwId;
+  }
   state.step = "ask_file";
   await saveState(tgUserId, state);
-  await sendMessage({ chat_id: chatId, text: uz.askFile });
+  await sendMessage({
+    chat_id: chatId,
+    text: hw
+      ? tpl(uzFeature.pickedHomework, { id: hwId, title: hw.title as string })
+      : uz.askFile,
+  });
+}
+
+function truncate(s: string, n: number): string {
+  return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
 // ─── Fan-out (AI review + teacher card + parents notify) ─────────────────────
