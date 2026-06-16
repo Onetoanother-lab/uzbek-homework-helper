@@ -13,6 +13,7 @@ import { Route as ConsoleRouteImport } from './routes/console'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiInternalWeeklyReportRouteImport } from './routes/api/internal/weekly-report'
 import { Route as ApiInternalRemindersRouteImport } from './routes/api/internal/reminders'
+import { Route as ApiInternalMissingCheckRouteImport } from './routes/api/internal/missing-check'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
 const ConsoleRoute = ConsoleRouteImport.update({
@@ -35,6 +36,11 @@ const ApiInternalRemindersRoute = ApiInternalRemindersRouteImport.update({
   path: '/api/internal/reminders',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiInternalMissingCheckRoute = ApiInternalMissingCheckRouteImport.update({
+  id: '/api/internal/missing-check',
+  path: '/api/internal/missing-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicTelegramWebhookRoute =
   ApiPublicTelegramWebhookRouteImport.update({
     id: '/api/public/telegram/webhook',
@@ -45,6 +51,7 @@ const ApiPublicTelegramWebhookRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/console': typeof ConsoleRoute
+  '/api/internal/missing-check': typeof ApiInternalMissingCheckRoute
   '/api/internal/reminders': typeof ApiInternalRemindersRoute
   '/api/internal/weekly-report': typeof ApiInternalWeeklyReportRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -52,6 +59,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/console': typeof ConsoleRoute
+  '/api/internal/missing-check': typeof ApiInternalMissingCheckRoute
   '/api/internal/reminders': typeof ApiInternalRemindersRoute
   '/api/internal/weekly-report': typeof ApiInternalWeeklyReportRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -60,6 +68,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/console': typeof ConsoleRoute
+  '/api/internal/missing-check': typeof ApiInternalMissingCheckRoute
   '/api/internal/reminders': typeof ApiInternalRemindersRoute
   '/api/internal/weekly-report': typeof ApiInternalWeeklyReportRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -69,6 +78,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/console'
+    | '/api/internal/missing-check'
     | '/api/internal/reminders'
     | '/api/internal/weekly-report'
     | '/api/public/telegram/webhook'
@@ -76,6 +86,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/console'
+    | '/api/internal/missing-check'
     | '/api/internal/reminders'
     | '/api/internal/weekly-report'
     | '/api/public/telegram/webhook'
@@ -83,6 +94,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/console'
+    | '/api/internal/missing-check'
     | '/api/internal/reminders'
     | '/api/internal/weekly-report'
     | '/api/public/telegram/webhook'
@@ -91,6 +103,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConsoleRoute: typeof ConsoleRoute
+  ApiInternalMissingCheckRoute: typeof ApiInternalMissingCheckRoute
   ApiInternalRemindersRoute: typeof ApiInternalRemindersRoute
   ApiInternalWeeklyReportRoute: typeof ApiInternalWeeklyReportRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
@@ -126,6 +139,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInternalRemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/internal/missing-check': {
+      id: '/api/internal/missing-check'
+      path: '/api/internal/missing-check'
+      fullPath: '/api/internal/missing-check'
+      preLoaderRoute: typeof ApiInternalMissingCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/telegram/webhook': {
       id: '/api/public/telegram/webhook'
       path: '/api/public/telegram/webhook'
@@ -139,6 +159,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConsoleRoute: ConsoleRoute,
+  ApiInternalMissingCheckRoute: ApiInternalMissingCheckRoute,
   ApiInternalRemindersRoute: ApiInternalRemindersRoute,
   ApiInternalWeeklyReportRoute: ApiInternalWeeklyReportRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
