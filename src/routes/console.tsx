@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Bot, CheckCircle2, Clock, RefreshCw, Shield, Terminal, type LucideIcon } from "lucide-react";
-import { FormEvent, ReactNode, useState } from "react";
+import { AlertTriangle, Bot, CheckCircle2, Clock, FileText, RefreshCw, Shield, Terminal, type LucideIcon } from "lucide-react";
+import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 
 import { getBotConsoleData } from "@/lib/bot-console.functions";
 
@@ -44,6 +44,18 @@ function BotConsole() {
     event.preventDefault();
     await refresh(key);
   }
+
+  // Auto-refresh every 10s once logged in
+  const keyRef = useRef(key);
+  keyRef.current = key;
+  useEffect(() => {
+    if (!data) return;
+    const interval = setInterval(() => {
+      refresh(keyRef.current).catch(() => {});
+    }, 10000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data !== null]);
 
   if (!data) {
     return (
@@ -137,6 +149,47 @@ function BotConsole() {
               <StatusRow label="Teacher chats" value={data.teacherChats.map((chat) => String(chat.chat_id)).join(", ") || "None"} />
               <StatusRow label="Parent groups" value={data.groups.filter((group) => group.parents_chat_id).map((group) => group.name).join(", ") || "None"} />
             </div>
+          </Panel>
+        </section>
+
+        <section className="mt-6">
+          <Panel title={`Live submissions feed (last ${data.recentSubmissions.length})`} icon={FileText}>
+            {data.recentSubmissions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No submissions yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-xs uppercase text-muted-foreground">
+                    <tr className="text-left">
+                      <th className="py-2 pr-3">#</th>
+                      <th className="py-2 pr-3">Student</th>
+                      <th className="py-2 pr-3">Group</th>
+                      <th className="py-2 pr-3">Homework</th>
+                      <th className="py-2 pr-3">Status</th>
+                      <th className="py-2 pr-3">Grade</th>
+                      <th className="py-2 pr-3">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.recentSubmissions.map((sub) => (
+                      <tr key={sub.id} className="border-t border-border">
+                        <td className="py-2 pr-3 font-mono">#{sub.id}</td>
+                        <td className="py-2 pr-3">{sub.student_name}</td>
+                        <td className="py-2 pr-3">{sub.group_name}</td>
+                        <td className="py-2 pr-3 text-muted-foreground">{sub.homework_title ?? "—"}</td>
+                        <td className="py-2 pr-3">
+                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs ${sub.status === "reviewed" ? "bg-chart-2/10 text-chart-2" : "bg-muted text-muted-foreground"}`}>
+                            {sub.status}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-3">{sub.grade ?? "—"}</td>
+                        <td className="py-2 pr-3 text-xs text-muted-foreground">{formatDate(sub.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Panel>
         </section>
 
