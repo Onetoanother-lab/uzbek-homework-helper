@@ -150,7 +150,7 @@ export const uz = {
   errorGeneric:   "Xatolik yuz berdi. Iltimos, keyinroq qayta urinib ko'ring.",
   aiUnavailable:  "AI taklifi hozircha mavjud emas.",
   help:
-    "📋 Buyruqlar:\n/start — yangi vazifa yuborish\n/resubmit <ID> — vazifani yangilash\n/mystatus — oxirgi vazifalaringiz\n/help — yordam",
+    "📋 Buyruqlar:\n/start — yangi vazifa yuborish\n/myhomeworks — faol uy vazifalarim\n/resubmit <ID> — vazifani yangilash\n/mystatus — oxirgi vazifalaringiz\n/help — yordam",
   unknownCmd:
     "Tushunmadim. /start — vazifa yuborish, /help — yordam.",
 

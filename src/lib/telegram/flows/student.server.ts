@@ -11,11 +11,12 @@ import {
 import { getFileBytes } from "@/lib/telegram/client.server";
 import { draftReview } from "@/lib/ai/review.server";
 import { uz, tpl, GRADES, fmtDate, fmtDateTime } from "@/lib/i18n/uz";
+import { uzFeature } from "@/lib/i18n/uz.feature";
 import { checkRateLimit, recordSubmission } from "@/lib/telegram/rate-limit.server";
 
 // ─── Conversation state ─────────────────────────────────────────────────────
 
-type Step = "ask_name" | "ask_group" | "ask_file" | "resubmit_file" | "idle";
+type Step = "ask_name" | "ask_group" | "ask_homework" | "ask_file" | "resubmit_file" | "idle";
 
 interface State {
   step: Step;
@@ -23,6 +24,8 @@ interface State {
     name?: string;
     group_id?: string;
     group_name?: string;
+    /** Homework the next submission is for (null = unattached). */
+    homework_id?: number | null;
     /** For resubmit flow: the submission ID being replaced */
     resubmit_id?: number;
   };
@@ -218,16 +221,19 @@ export async function handleSubmissionFile(
     return;
   }
 
+  const homeworkId = state.draft.homework_id ?? null;
+
   const { data: sub, error } = await supabaseAdmin
     .from("submissions")
     .insert({
       student_id: student.id,
       group_id: student.group_id,
+      homework_id: homeworkId,
       file_id: file.file_id,
       file_type: file.file_type,
       caption: caption ?? null,
       status: "pending",
-    })
+    } as any)
     .select("id")
     .single();
 
@@ -248,6 +254,7 @@ export async function handleSubmissionFile(
     studentName: student.full_name as string,
     groupId: student.group_id as string,
     groupName: state.draft.group_name ?? "",
+    homeworkId,
     file,
     caption,
     isResubmit: false,
@@ -272,7 +279,7 @@ async function processResubmit(
   // Double-check status hasn't changed
   const { data: sub } = await supabaseAdmin
     .from("submissions")
-    .select("id, status, student_id, group_id, teacher_chat_id")
+    .select("id, status, student_id, group_id, teacher_chat_id, homework_id")
     .eq("id", subId)
     .maybeSingle();
 
@@ -329,6 +336,7 @@ async function processResubmit(
     studentName,
     groupId: sub.group_id as string,
     groupName,
+    homeworkId: ((sub as any).homework_id as number | null) ?? null,
     file,
     caption,
     isResubmit: true,
@@ -391,6 +399,11 @@ export async function handlePrivateText(
 
   if (state.step === "ask_file" || state.step === "resubmit_file") {
     await sendMessage({ chat_id: chatId, text: uz.needFile });
+    return;
+  }
+
+  if (state.step === "ask_homework") {
+    await sendMessage({ chat_id: chatId, text: uzFeature.askHomework });
     return;
   }
 }
@@ -459,9 +472,93 @@ async function acceptGroup(
 
   state.draft.group_id = groupId;
   state.draft.group_name = groupName;
+  await offerHomeworkPicker(chatId, tgUserId, groupId, state);
+}
+
+// ─── Homework picker ─────────────────────────────────────────────────────────
+
+async function offerHomeworkPicker(
+  chatId: number,
+  tgUserId: number,
+  groupId: string,
+  state: State,
+): Promise<void> {
+  const sinceIso = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  const { data: hws } = await supabaseAdmin
+    .from("homeworks")
+    .select("id, title, due_at")
+    .eq("group_id", groupId)
+    .is("deleted_at", null)
+    .gte("due_at", sinceIso)
+    .order("due_at", { ascending: true })
+    .limit(8);
+
+  if (!hws || hws.length === 0) {
+    state.draft.homework_id = null;
+    state.step = "ask_file";
+    await saveState(tgUserId, state);
+    await sendMessage({ chat_id: chatId, text: uz.askFile });
+    return;
+  }
+
+  state.step = "ask_homework";
+  await saveState(tgUserId, state);
+
+  const buttons = (hws as any[]).map((h) => ({
+    text: `#${h.id} ${truncate(h.title as string, 28)}`,
+    callback_data: `pickhw:${h.id}`,
+  }));
+  buttons.push({ text: uzFeature.askHomeworkNone, callback_data: "pickhw:none" });
+
+  await sendMessage({
+    chat_id: chatId,
+    text: uzFeature.askHomework,
+    reply_markup: { inline_keyboard: chunk(buttons, 1) },
+  });
+}
+
+export async function handlePickHomeworkCallback(
+  chatId: number,
+  tgUserId: number,
+  raw: string,
+): Promise<void> {
+  const state = await loadState(tgUserId);
+  if (!state || state.step !== "ask_homework") return;
+
+  if (raw === "none") {
+    state.draft.homework_id = null;
+    state.step = "ask_file";
+    await saveState(tgUserId, state);
+    await sendMessage({ chat_id: chatId, text: uzFeature.pickedHomeworkNone });
+    return;
+  }
+
+  const hwId = parseInt(raw, 10);
+  if (!Number.isFinite(hwId)) return;
+
+  const { data: hw } = await supabaseAdmin
+    .from("homeworks")
+    .select("id, title")
+    .eq("id", hwId)
+    .maybeSingle();
+
+  if (!hw) {
+    state.draft.homework_id = null;
+  } else {
+    state.draft.homework_id = hwId;
+  }
   state.step = "ask_file";
   await saveState(tgUserId, state);
-  await sendMessage({ chat_id: chatId, text: uz.askFile });
+  await sendMessage({
+    chat_id: chatId,
+    text: hw
+      ? tpl(uzFeature.pickedHomework, { id: hwId, title: hw.title as string })
+      : uz.askFile,
+  });
+}
+
+function truncate(s: string, n: number): string {
+  return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
 // ─── Fan-out (AI review + teacher card + parents notify) ─────────────────────
@@ -471,11 +568,25 @@ async function fanout(opts: {
   studentName: string;
   groupId: string;
   groupName: string;
+  homeworkId: number | null;
   file: { file_id: string; file_type: "photo" | "document" };
   caption: string | undefined;
   isResubmit: boolean;
 }): Promise<void> {
-  // 1) AI draft review
+  // 0) Load homework context for the AI prompt (title + description)
+  let hwTitle: string | null = null;
+  let hwDescription: string | null = null;
+  if (opts.homeworkId) {
+    const { data: hw } = await supabaseAdmin
+      .from("homeworks")
+      .select("title, description")
+      .eq("id", opts.homeworkId)
+      .maybeSingle();
+    hwTitle = (hw?.title as string | null) ?? null;
+    hwDescription = (hw?.description as string | null) ?? null;
+  }
+
+  // 1) AI draft review (with homework context)
   let aiGrade: string | null = null;
   let aiFeedback: string | null = null;
 
@@ -485,6 +596,8 @@ async function fanout(opts: {
       bytes: fileBytes.bytes,
       mime: fileBytes.mime,
       caption: opts.caption,
+      homeworkTitle: hwTitle,
+      homeworkDescription: hwDescription,
     });
     aiGrade = review.grade;
     aiFeedback = review.feedback;

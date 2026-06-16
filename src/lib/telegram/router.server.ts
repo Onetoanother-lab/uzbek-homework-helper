@@ -10,7 +10,11 @@ import { reportError, withErrorReporting } from "@/lib/telegram/error-reporter.s
 import {
   handleStart, handleHelp, handleMyStatus, handlePrivateText,
   handlePickGroupCallback, handleSubmissionFile, handleResubmitCommand,
+  handlePickHomeworkCallback,
 } from "@/lib/telegram/flows/student.server";
+import {
+  handleMyHomeworks, handleReportCard, handleTeacherStats,
+} from "@/lib/telegram/flows/reportcard.server";
 import {
   handleGradeCallback, handleTeacherFeedbackReply,
   handleResend, handleHistory, handleEditReview,
@@ -129,6 +133,12 @@ async function handleCallbackQuery(cq: any): Promise<void> {
     await handlePickGroupCallback(chat_id, from_user_id, data.slice("pickgroup:".length));
     return;
   }
+
+  // ── Homework picker (during student submission) ──
+  if (data.startsWith("pickhw:")) {
+    await handlePickHomeworkCallback(chat_id, from_user_id, data.slice("pickhw:".length));
+    return;
+  }
 }
 
 // ─── Message routing ──────────────────────────────────────────────────────────
@@ -233,10 +243,19 @@ async function dispatchCommand(opts: {
     case "/dispute":
       if (chat_type === "private") await handleDispute(chat_id, from_user_id, arg);
       break;
+    case "/myhomeworks":
+      if (chat_type === "private") await handleMyHomeworks(chat_id, from_user_id);
+      break;
 
     // ── Teacher ──────────────────────────────────────────────────────────────
     case "/resend":
       await handleResend(chat_id, arg);
+      break;
+    case "/teacherstats":
+      await handleTeacherStats(chat_id, from_user_id);
+      break;
+    case "/reportcard":
+      await handleReportCard(chat_id, arg);
       break;
     case "/history":
       await handleHistory(chat_id, arg);

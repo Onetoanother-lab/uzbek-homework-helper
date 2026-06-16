@@ -68,6 +68,44 @@ export type Database = {
         }
         Relationships: []
       }
+      bulkgrade_sessions: {
+        Row: {
+          current_sub_id: number | null
+          graded_count: number
+          group_id: string
+          last_activity_at: string
+          skipped_count: number
+          started_at: string
+          teacher_tg_id: number
+        }
+        Insert: {
+          current_sub_id?: number | null
+          graded_count?: number
+          group_id: string
+          last_activity_at?: string
+          skipped_count?: number
+          started_at?: string
+          teacher_tg_id: number
+        }
+        Update: {
+          current_sub_id?: number | null
+          graded_count?: number
+          group_id?: string
+          last_activity_at?: string
+          skipped_count?: number
+          started_at?: string
+          teacher_tg_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulkgrade_sessions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_state: {
         Row: {
           draft: Json
@@ -264,6 +302,45 @@ export type Database = {
           },
         ]
       }
+      missing_submission_alerts: {
+        Row: {
+          alerted_at: string
+          followup_sent_at: string | null
+          homework_id: number
+          id: number
+          student_id: string
+        }
+        Insert: {
+          alerted_at?: string
+          followup_sent_at?: string | null
+          homework_id: number
+          id?: number
+          student_id: string
+        }
+        Update: {
+          alerted_at?: string
+          followup_sent_at?: string | null
+          homework_id?: number
+          id?: number
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missing_submission_alerts_homework_id_fkey"
+            columns: ["homework_id"]
+            isOneToOne: false
+            referencedRelation: "homeworks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "missing_submission_alerts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parent_student_links: {
         Row: {
           id: number
@@ -413,6 +490,7 @@ export type Database = {
           final_feedback: string | null
           final_grade: string | null
           group_id: string | null
+          homework_id: number | null
           id: number
           last_resubmit_at: string | null
           pending_grade: string | null
@@ -434,6 +512,7 @@ export type Database = {
           final_feedback?: string | null
           final_grade?: string | null
           group_id?: string | null
+          homework_id?: number | null
           id?: number
           last_resubmit_at?: string | null
           pending_grade?: string | null
@@ -455,6 +534,7 @@ export type Database = {
           final_feedback?: string | null
           final_grade?: string | null
           group_id?: string | null
+          homework_id?: number | null
           id?: number
           last_resubmit_at?: string | null
           pending_grade?: string | null
@@ -472,6 +552,13 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submissions_homework_id_fkey"
+            columns: ["homework_id"]
+            isOneToOne: false
+            referencedRelation: "homeworks"
             referencedColumns: ["id"]
           },
           {

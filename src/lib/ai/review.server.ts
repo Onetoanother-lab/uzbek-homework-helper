@@ -12,19 +12,21 @@ export interface DraftReview {
 }
 
 const SYSTEM_PROMPT = `Siz uy vazifasini tekshiruvchi yordamchisiz. Foydalanuvchi sizga vazifani rasm yoki hujjat ko'rinishida yuboradi.
-Vazifani diqqat bilan ko'rib chiqing va quyidagi JSON formatda javob bering:
-{"grade": "A'lo" | "Yaxshi" | "Qoniqarli" | "Qayta ishlash", "feedback": "qisqa o'zbek tilida 1-3 jumla: nimasi yaxshi, nimasini yaxshilash kerak"}
+Agar topshiriq matni berilgan bo'lsa, javobni shu topshiriqning aniq talablariga qarab baholang. Qaysi punktlar bajarilgan, qaysilari yo'q yoki noto'g'ri ekanini aniq ayting.
+Quyidagi JSON formatda javob bering:
+{"grade": "A'lo" | "Yaxshi" | "Qoniqarli" | "Qayta ishlash", "feedback": "qisqa o'zbek tilida 1-3 jumla: aniq nima bajarilgan, nimasi yetishmayapti yoki noto'g'ri"}
 Faqat JSON qaytaring, boshqa hech narsa yo'q.`;
 
 export async function draftReview(opts: {
   bytes: Uint8Array;
   mime: string;
   caption?: string;
+  homeworkTitle?: string | null;
+  homeworkDescription?: string | null;
 }): Promise<DraftReview> {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) return { grade: null, feedback: null };
 
-  // Only photos and PDFs are supported reliably.
   const isImage = opts.mime.startsWith("image/");
   const isPdf = opts.mime === "application/pdf";
   if (!isImage && !isPdf) return { grade: null, feedback: null };
@@ -39,6 +41,22 @@ export async function draftReview(opts: {
           file_data: `data:application/pdf;base64,${base64}`,
         },
       };
+
+  const promptParts: string[] = [];
+  if (opts.homeworkTitle) {
+    promptParts.push(`📚 TOPSHIRIQ: ${opts.homeworkTitle}`);
+  }
+  if (opts.homeworkDescription) {
+    promptParts.push(`📄 TAVSIF: ${opts.homeworkDescription}`);
+  }
+  if (opts.caption) {
+    promptParts.push(`💬 O'quvchi izohi: ${opts.caption}`);
+  }
+  if (promptParts.length === 0) {
+    promptParts.push("Vazifani tekshiring.");
+  } else {
+    promptParts.push("Yuqoridagi topshiriqqa nisbatan o'quvchi javobini baholang.");
+  }
 
   try {
     const res = await fetch(AI_URL, {
@@ -55,12 +73,7 @@ export async function draftReview(opts: {
           {
             role: "user",
             content: [
-              {
-                type: "text",
-                text: opts.caption
-                  ? `O'quvchi izohi: ${opts.caption}`
-                  : "Vazifani tekshiring.",
-              },
+              { type: "text", text: promptParts.join("\n") },
               contentBlock,
             ],
           },
@@ -94,7 +107,6 @@ export async function draftReview(opts: {
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
-  // Worker-safe base64 encoding without exceeding call-stack on big buffers.
   let binary = "";
   const chunk = 0x8000;
   for (let i = 0; i < bytes.length; i += chunk) {

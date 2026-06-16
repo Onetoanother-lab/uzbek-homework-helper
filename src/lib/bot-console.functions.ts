@@ -13,7 +13,7 @@ export const getBotConsoleData = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const [events, errors, updates, groups, teacherChats, students, submissions, admins] =
+    const [events, errors, updates, groups, teacherChats, students, submissions, admins, recentSubs] =
       await Promise.all([
         supabaseAdmin
           .from("bot_events")
@@ -43,6 +43,11 @@ export const getBotConsoleData = createServerFn({ method: "POST" })
         supabaseAdmin.from("students").select("id", { count: "exact", head: true }),
         supabaseAdmin.from("submissions").select("id, status", { count: "exact" }).limit(500),
         supabaseAdmin.from("admins").select("tg_user_id, added_at").order("added_at", { ascending: false }),
+        supabaseAdmin
+          .from("submissions")
+          .select("id, status, final_grade, created_at, reviewed_at, student_id, group_id, homework_id, students(full_name), groups(name), homeworks(title)")
+          .order("created_at", { ascending: false })
+          .limit(20),
       ]);
 
     const submissionRows = submissions.data ?? [];
@@ -70,6 +75,16 @@ export const getBotConsoleData = createServerFn({ method: "POST" })
       groups: groups.data ?? [],
       teacherChats: teacherChats.data ?? [],
       admins: admins.data ?? [],
+      recentSubmissions: (recentSubs.data ?? []).map((row: any) => ({
+        id: row.id as number,
+        status: row.status as string,
+        grade: (row.final_grade as string | null) ?? null,
+        created_at: row.created_at as string,
+        reviewed_at: (row.reviewed_at as string | null) ?? null,
+        student_name: (row.students?.full_name as string | undefined) ?? "—",
+        group_name: (row.groups?.name as string | undefined) ?? "—",
+        homework_title: (row.homeworks?.title as string | undefined) ?? null,
+      })),
     };
   });
 
