@@ -279,7 +279,7 @@ async function processResubmit(
   // Double-check status hasn't changed
   const { data: sub } = await supabaseAdmin
     .from("submissions")
-    .select("id, status, student_id, group_id, teacher_chat_id")
+    .select("id, status, student_id, group_id, teacher_chat_id, homework_id")
     .eq("id", subId)
     .maybeSingle();
 
@@ -336,6 +336,7 @@ async function processResubmit(
     studentName,
     groupId: sub.group_id as string,
     groupName,
+    homeworkId: ((sub as any).homework_id as number | null) ?? null,
     file,
     caption,
     isResubmit: true,
@@ -398,6 +399,11 @@ export async function handlePrivateText(
 
   if (state.step === "ask_file" || state.step === "resubmit_file") {
     await sendMessage({ chat_id: chatId, text: uz.needFile });
+    return;
+  }
+
+  if (state.step === "ask_homework") {
+    await sendMessage({ chat_id: chatId, text: uzFeature.askHomework });
     return;
   }
 }
