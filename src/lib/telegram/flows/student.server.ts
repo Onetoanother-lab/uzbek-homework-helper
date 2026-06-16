@@ -221,16 +221,19 @@ export async function handleSubmissionFile(
     return;
   }
 
+  const homeworkId = state.draft.homework_id ?? null;
+
   const { data: sub, error } = await supabaseAdmin
     .from("submissions")
     .insert({
       student_id: student.id,
       group_id: student.group_id,
+      homework_id: homeworkId,
       file_id: file.file_id,
       file_type: file.file_type,
       caption: caption ?? null,
       status: "pending",
-    })
+    } as any)
     .select("id")
     .single();
 
@@ -251,6 +254,7 @@ export async function handleSubmissionFile(
     studentName: student.full_name as string,
     groupId: student.group_id as string,
     groupName: state.draft.group_name ?? "",
+    homeworkId,
     file,
     caption,
     isResubmit: false,
