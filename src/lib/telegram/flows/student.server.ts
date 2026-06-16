@@ -11,11 +11,12 @@ import {
 import { getFileBytes } from "@/lib/telegram/client.server";
 import { draftReview } from "@/lib/ai/review.server";
 import { uz, tpl, GRADES, fmtDate, fmtDateTime } from "@/lib/i18n/uz";
+import { uzFeature } from "@/lib/i18n/uz.feature";
 import { checkRateLimit, recordSubmission } from "@/lib/telegram/rate-limit.server";
 
 // ─── Conversation state ─────────────────────────────────────────────────────
 
-type Step = "ask_name" | "ask_group" | "ask_file" | "resubmit_file" | "idle";
+type Step = "ask_name" | "ask_group" | "ask_homework" | "ask_file" | "resubmit_file" | "idle";
 
 interface State {
   step: Step;
@@ -23,6 +24,8 @@ interface State {
     name?: string;
     group_id?: string;
     group_name?: string;
+    /** Homework the next submission is for (null = unattached). */
+    homework_id?: number | null;
     /** For resubmit flow: the submission ID being replaced */
     resubmit_id?: number;
   };
